@@ -1,12 +1,19 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+// Preparar las alertas todos los días a las 07:55 Ecuador.
+Schedule::command('registros:preparar-automaticas')
+    ->dailyAt('07:55')
+    ->timezone('America/Guayaquil')
+    ->withoutOverlapping(15)
+    ->appendOutputTo(storage_path('logs/registros-preparacion.log'));
 
-// Simulaciones cada cinco minutos; las fechas se calculan en America/Guayaquil.
-\Illuminate\Support\Facades\Schedule::command('registros:alertas --simular')
-    ->everyFiveMinutes()->withoutOverlapping(30);
+// Enviar hasta cinco correos cada cinco minutos,
+// únicamente entre 08:00 y 08:55 Ecuador.
+Schedule::command('registros:alertas --enviar --limite=5')
+    ->everyFiveMinutes()
+    ->timezone('America/Guayaquil')
+    ->between('08:00', '08:55')
+    ->withoutOverlapping(15)
+    ->appendOutputTo(storage_path('logs/registros-envios.log'));

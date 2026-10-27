@@ -1,0 +1,70 @@
+
+name: registros-sanitarios
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:18088:80"
+    volumes:
+      - registros_storage:/var/www/html/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - registros_net
+
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: registros_sanitarios
+      MARIADB_USER: registros_user
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Configurar DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Configurar DB_ROOT_PASSWORD}
+      TZ: America/Guayaquil
+    volumes:
+      - registros_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - registros_net
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles:
+      - scheduler
+    restart: unless-stopped
+    user: www-data
+    env_file:
+      - .env
+    command: >
+      sh -c "while true; do
+      php artisan schedule:run;
+      sleep 60;
+      done"
+    volumes:
+      - registros_storage:/var/www/html/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - registros_net
+
+networks:
+  registros_net:
+    driver: bridge
+
+volumes:
+  registros_db:
+  registros_storage:
